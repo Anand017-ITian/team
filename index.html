@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriGrow Connect: Smart Farming App</title>
+    <!-- Load Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom Configuration and Base Styles */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
+        :root {
+            --color-primary: #4CAF50; /* Green */
+            --color-secondary: #8BC34A; /* Light Green/Lime */
+            --color-background: #F0FFF4; /* Honeydew Light Background */
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7; /* Slightly darker body background */
+        }
+
+        /* Enforce Mobile View Container and Center It */
+        .app-container {
+            max-width: 420px; /* Standard mobile width */
+            margin: 0 auto;
+            min-height: 100vh;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        /* Fixed Header/Footer */
+        .app-header {
+            background-color: var(--color-primary);
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        
+        /* FIX: Ensures fixed navigation bar aligns and centers with the mobile container */
+        .app-nav {
+            background-color: var(--color-primary);
+            color: white;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+            z-index: 10;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 420px; /* Aligns with app-container width */
+            left: 50%;
+            transform: translateX(-50%);
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+        }
+
+        /* FIX: Adjust main content padding to account for fixed header (64px) and nav (72px including padding) */
+        .app-main {
+            padding-top: 64px; 
+            padding-bottom: 72px; 
+            padding-left: 1rem;
+            padding-right: 1rem;
+            overflow-y: auto;
+        }
+
+        .chat-container {
+            /* Adjusted to allow room for the fixed input at the bottom of the content area */
+            height: calc(100vh - 64px - 72px - 60px); 
+            max-height: calc(100vh - 64px - 72px - 60px);
+        }
+
+        .chat-message {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            word-wrap: break-word; /* Essential for long responses */
+        }
+        .user-message {
+            background-color: var(--color-primary);
+            color: white;
+            border-bottom-right-radius: 2px;
+            align-self: flex-end;
+        }
+        .ai-message {
+            background-color: #E0F2F1; /* Light cyan/teal for AI */
+            color: #333;
+            border-bottom-left-radius: 2px;
+            align-self: flex-start;
+        }
+        .ai-message.loading {
+            background-color: #F0FFF4;
+            color: #4CAF50;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .nav-item.active {
+            color: #fff; /* White */
+            background-color: rgba(139, 195, 74, 0.2); /* var(--color-secondary) with alpha */
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .nav-icon {
+            color: #fff;
+        }
+        .nav-item.active .nav-icon {
+            color: var(--color-secondary);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- Header (Fixed Top) -->
+        <header class="app-header p-4 flex justify-between items-center fixed top-0 w-full max-w-sm mx-auto">
+            <h1 class="text-xl font-bold" id="header-title">AgriGrow Connect</h1>
+            <button onclick="toggleOfflineMode()" class="text-sm px-2 py-1 rounded-full border border-white transition duration-300" id="offline-indicator">
+                <i class="fas fa-wifi"></i> Online
+            </button>
+        </header>
+        
+        <!-- Custom Message Bar (Replaces alert()) -->
+        <div id="message-bar" class="fixed top-20 left-1/2 transform -translate-x-1/2 -translate-y-full opacity-0 transition-all duration-500 w-11/12 max-w-xs p-3 rounded-xl shadow-2xl z-20 text-center font-medium"></div>
+
+        <!-- Main Content Area (Scrollable) -->
+        <main class="app-main h-full" id="app-screen">
+            <!-- Content will be injected here by JavaScript based on currentView -->
+            <div id="loading-spinner" class="flex justify-center items-center h-full min-h-screen">
+                <i class="fas fa-spinner fa-spin text-4xl text-green-600"></i>
+            </div>
+        </main>
+
+        <!-- Fixed Bottom Navigation (Shared) -->
+        <nav class="app-nav w-full flex justify-around py-3">
+            <button class="nav-item flex flex-col items-center text-xs transition duration-150 p-1" data-view="home" onclick="navigateTo('home')">
+                <i class="fas fa-home text-xl nav-icon"></i>
+                <span class="mt-1">Home</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-xs transition duration-150 p-1" data-view="chat" onclick="navigateTo('chat')">
+                <i class="fas fa-robot text-xl nav-icon"></i>
+                <span class="mt-1">AgroBot</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-xs transition duration-150 p-1" data-view="videos" onclick="navigateTo('videos')">
+                <i class="fas fa-video text-xl nav-icon"></i>
+                <span class="mt-1">Videos</span>
+            </button>
+            <!-- Dynamically change the fourth nav item based on user role -->
+            <button class="nav-item flex flex-col items-center text-xs transition duration-150 p-1" data-view="market" onclick="navigateTo('market')" id="fourth-nav-item">
+                <!-- Content set dynamically in JS -->
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Firebase SDK Imports (Minimal, as not all features require persistence yet) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- Firebase Global Variable Setup ---
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        window.appId = null;
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-agrigrow-id';
+
+        if (firebaseConfig) {
+            try {
+                const firebaseApp = initializeApp(firebaseConfig);
+                window.db = getFirestore(firebaseApp);
+                window.auth = getAuth(firebaseApp);
+                
+                setLogLevel('debug');
+
+                onAuthStateChanged(window.auth, async (user) => {
+                    if (user) {
+                        window.userId = user.uid;
+                    } else {
+                        const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                        try {
+                            if (token) {
+                                await signInWithCustomToken(window.auth, token);
+                                window.userId = window.auth.currentUser.uid;
+                            } else {
+                                await signInAnonymously(window.auth);
+                                window.userId = window.auth.currentUser.uid;
+                            }
+                        } catch (error) {
+                            console.error("Firebase Auth failed, falling back to anonymous/random ID:", error);
+                            window.userId = crypto.randomUUID();
+                        }
+                    }
+                    console.log("Firebase initialized. User ID:", window.userId);
+                    window.initializeAppStructure(); 
+                });
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                window.userId = crypto.randomUUID();
+                window.initializeAppStructure(); 
+            }
+        } else {
+            console.warn("Firebase config not found. Running without persistent storage.");
+            window.userId = crypto.randomUUID();
+            window.initializeAppStructure(); 
+        }
+    </script>
+    
+    <!-- Main Application Logic (Runs after Firebase is initialized) -->
+    <script>
+        // Global Constants and State
+        const appScreen = document.getElementById('app-screen');
+        const headerTitle = document.getElementById('header-title');
+        const navItems = document.querySelectorAll('.nav-item');
+        const fourthNavItem = document.getElementById('fourth-nav-item');
+        const messageBar = document.getElementById('message-bar');
+        
+        let currentUser = null; 
+        let currentView = 'initial';
+        let isRecording = false;
+        let isOffline = false;
+        let isAiThinking = false; 
+        let isPlayingAudio = false; // New state for TTS
+        const OFFLINE_KEY = 'agrigrow_offline_mode';
+        
+        // --- Gemini API Configuration ---
+        const GEMINI_API_KEY = ""; // Kept empty; Canvas will inject the key
+        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+        const TTS_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent";
+
+
+        // Mock Data
+        const farmerProfile = {
+            name: "Ramesh P.",
+            farmId: "FARM-774",
+            primaryCrop: "Paddy Rice",
+            location: "Solapur, MH",
+            loanStatus: "Approved (₹50,000)",
+            riskScore: 78 
+        };
+
+        const weatherData = {
+            temp: '28°C',
+            rainfall: '0mm (Dry)',
+            humidity: '55%',
+            soilMoisture: '35% (Dry)',
+            forecast: 'Heavy rain expected tomorrow.',
+            // New detailed fields for enhanced weather condition visibility
+            windSpeed: '12 km/h (Moderate)',
+            soilTemp: '26°C',
+            nextRain: 'Tomorrow, 5 PM',
+            diseaseRisk: 'Medium (Fungal)',
+            pestRisk: 'High (Aphids/Mites)',
+        };
+
+        const marketData = [
+            { crop: 'Tomatoes', trend: 'high', value: '+12%', indicator: '📈', prediction: 'Peak demand expected for 2 more weeks.' },
+            { crop: 'Paddy Rice', trend: 'low', value: '-4%', indicator: '📉', prediction: 'Prices stabilizing, consider storage until next month.' },
+            { crop: 'Mangoes', trend: 'steady', value: '0%', indicator: '↔️', prediction: 'Seasonal end. No significant movement expected.' },
+        ];
+        
+        // --- TTS Helper Functions ---
+
+        // Convert base64 audio data to ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // Convert PCM data to a WAV Blob (Signed 16-bit PCM)
+        function pcmToWav(pcm16, sampleRate) {
+            const numChannels = 1;
+            const bytesPerSample = 2; // Int16Array
+            const buffer = new ArrayBuffer(44 + pcm16.length * bytesPerSample);
+            const view = new DataView(buffer);
+
+            // Write WAV header
+            let offset = 0;
+            // RIFF chunk descriptor
+            writeString(view, offset, 'RIFF'); offset += 4;
+            view.setUint32(offset, 36 + pcm16.length * bytesPerSample, true); offset += 4;
+            writeString(view, offset, 'WAVE'); offset += 4;
+            // FMT sub-chunk
+            writeString(view, offset, 'fmt '); offset += 4;
+            view.setUint32(offset, 16, true); offset += 4; // Sub-chunk size
+            view.setUint16(offset, 1, true); offset += 2; // Audio format (1 for PCM)
+            view.setUint16(offset, numChannels, true); offset += 2; // Number of channels
+            view.setUint32(offset, sampleRate, true); offset += 4; // Sample rate
+            view.setUint32(offset, sampleRate * numChannels * bytesPerSample, true); offset += 4; // Byte rate
+            view.setUint16(offset, numChannels * bytesPerSample, true); offset += 2; // Block align
+            view.setUint16(offset, bytesPerSample * 8, true); offset += 2; // Bits per sample
+            // DATA sub-chunk
+            writeString(view, offset, 'data'); offset += 4;
+            view.setUint32(offset, pcm16.length * bytesPerSample, true); offset += 4;
+
+            // Write PCM data
+            for (let i = 0; i < pcm16.length; i++) {
+                view.setInt16(offset, pcm16[i], true);
+                offset += bytesPerSample;
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+        }
+
+
+        // --- Gemini API Call Function (Modified to handle TTS model) ---
+
+        async function callGeminiApi(payload, useSearchGrounding = false, structureSchema = null, modelOverride = null) {
+            if (isOffline) {
+                showCustomAlert("Cannot contact AI: You are in Offline Mode.", 'error');
+                return null;
+            }
+
+            const apiUrl = modelOverride === TTS_API_URL 
+                ? `${TTS_API_URL}?key=${GEMINI_API_KEY}`
+                : `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
+            
+            const fetchOptions = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+            
+            // Exponential backoff logic
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, fetchOptions);
+                    
+                    if (!response.ok) {
+                        if (response.status === 429 && attempt < 2) {
+                            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw new Error(`API call failed with status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    // Handle TTS response (Audio data)
+                    if (modelOverride === TTS_API_URL) {
+                        const part = result?.candidates?.[0]?.content?.parts?.[0];
+                        const audioData = part?.inlineData?.data;
+                        const mimeType = part?.inlineData?.mimeType;
+
+                        if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                             const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                             const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000; // Default to 16kHz
+                             return { audioData, mimeType, sampleRate };
+                        } else {
+                            throw new Error("TTS response missing audio data.");
+                        }
+                    }
+
+                    // Handle standard text response
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const text = candidate.content.parts[0].text;
+                        
+                        let sources = [];
+                        const groundingMetadata = candidate.groundingMetadata;
+                        if (useSearchGrounding && groundingMetadata && groundingMetadata.groundingAttributions) {
+                            sources = groundingMetadata.groundingAttributions
+                                .map(attribution => ({
+                                    uri: attribution.web?.uri,
+                                    title: attribution.web?.title,
+                                }))
+                                .filter(source => source.uri && source.title);
+                        }
+
+                        return { text, sources };
+                    }
+                    return null;
+
+                } catch (error) {
+                    console.error("Gemini API error:", error);
+                    if (attempt === 2) {
+                        showCustomAlert("AI service temporarily unavailable. Please try again later.", 'error');
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // --- UI Utility Functions ---
+
+        function showCustomAlert(message, type = 'info') {
+            let bgColor = 'bg-blue-600';
+            let icon = 'fas fa-info-circle';
+            if (type === 'success') {
+                bgColor = 'bg-green-600';
+                icon = 'fas fa-check-circle';
+            } else if (type === 'error') {
+                bgColor = 'bg-red-600';
+                icon = 'fas fa-times-circle';
+            } else if (type === 'warning') {
+                bgColor = 'bg-yellow-600';
+                icon = 'fas fa-exclamation-triangle';
+            }
+
+            messageBar.className = `fixed top-20 left-1/2 transform -translate-x-1/2 text-white rounded-xl shadow-2xl z-20 w-11/12 max-w-xs p-3 transition-all duration-300 font-medium ${bgColor}`;
+            messageBar.style.opacity = 1;
+            messageBar.style.transform = 'translateY(0) translateX(-50%)';
+            messageBar.innerHTML = `<i class="${icon} mr-2"></i> ${message}`;
+            
+            setTimeout(() => {
+                messageBar.style.opacity = 0;
+                messageBar.style.transform = 'translateY(-20px) translateX(-50%)';
+            }, 4000);
+        }
+
+        // --- Core Navigation and View Management ---
+
+        function setView(userType) {
+            currentUser = userType;
+            if (currentUser) {
+                // Update the dynamic 4th navigation item content
+                if (currentUser === 'farmer') {
+                    fourthNavItem.setAttribute('data-view', 'market');
+                    fourthNavItem.onclick = () => navigateTo('market');
+                    // Farmer's tab is titled 'Market' and uses the chart icon
+                    fourthNavItem.innerHTML = '<i class="fas fa-chart-line text-xl nav-icon"></i><span class="mt-1">Market</span>';
+                } else if (currentUser === 'trainer') {
+                    // Trainer's tab is titled 'Marketplace' and uses the store icon
+                    fourthNavItem.setAttribute('data-view', 'market-trainer');
+                    fourthNavItem.onclick = () => navigateTo('market-trainer');
+                    fourthNavItem.innerHTML = '<i class="fas fa-store-alt text-xl nav-icon"></i><span class="mt-1">Marketplace</span>';
+                }
+                // Immediately navigate to the Home view
+                navigateTo('home');
+            }
+        }
+
+        function navigateTo(view) {
+            currentView = view;
+            appScreen.innerHTML = '';
+            
+            // Highlight active nav item
+            navItems.forEach(item => item.classList.remove('active'));
+            const activeNav = document.querySelector(`.nav-item[data-view="${view}"]`);
+            if (!activeNav && view === 'market' && currentUser === 'farmer') {
+                 document.querySelector(`.nav-item[data-view="market"]`).classList.add('active');
+            } else if (!activeNav && view === 'market-trainer' && currentUser === 'trainer') {
+                 document.querySelector(`.nav-item[data-view="market-trainer"]`).classList.add('active');
+            } else if (activeNav) {
+                activeNav.classList.add('active');
+            }
+
+            // Update header title
+            let baseTitle = "AgriGrow Connect";
+            if (currentUser === 'farmer') {
+                baseTitle = "👨‍🌾 Farmer Home";
+            } else if (currentUser === 'trainer') {
+                baseTitle = "👩‍🏫 Trainer Hub";
+            }
+            
+            switch (view) {
+                case 'home':
+                    headerTitle.textContent = baseTitle;
+                    if (currentUser === 'farmer') {
+                        renderFarmerHome();
+                    } else if (currentUser === 'trainer') {
+                        renderTrainerHome();
+                    } else {
+                        renderInitialScreen();
+                    }
+                    break;
+                case 'chat':
+                    headerTitle.textContent = "🤖 AgroBot Assistant";
+                    renderChatBox();
+                    break;
+                case 'videos':
+                    headerTitle.textContent = "📹 Video Lessons";
+                    renderVideoLessons();
+                    break;
+                case 'market':
+                    headerTitle.textContent = "📊 Farmer Marketplace";
+                    if (currentUser === 'farmer') {
+                        renderFarmerMarketplace(); 
+                    }
+                    break;
+                case 'market-trainer':
+                    headerTitle.textContent = "🛒 Trainer Marketplace";
+                    renderTrainerMarketplace();
+                    break;
+                case 'community':
+                    headerTitle.textContent = "👥 Community Forum";
+                    renderCommunityForum();
+                    break;
+                default:
+                    // Fallback to initial screen if state is broken
+                    headerTitle.textContent = "AgriGrow Connect";
+                    renderInitialScreen();
+                    break;
+            }
+        }
+
+        function renderInitialScreen() {
+             appScreen.innerHTML = `
+                <div id="view-initial" class="flex flex-col space-y-6 pt-12 items-center text-center min-h-screen">
+                    <i class="fas fa-seedling text-8xl text-green-700"></i>
+                    <h2 class="text-2xl font-bold text-gray-800">Welcome to AgriGrow Connect</h2>
+                    <p class="text-gray-500">Select your role to access personalized AI guidance.</p>
+                    
+                    ${window.userId ? `<p class="text-xs text-gray-400">Your App ID: ${window.appId}</p>
+                    <p class="text-xs text-gray-400">Your User ID: ${window.userId}</p>` : ''}
+                    
+                    <button onclick="setView('farmer')" class="w-full max-w-xs p-4 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition duration-300">
+                        <i class="fas fa-user-tag mr-2"></i> I am a Farmer
+                    </button>
+                    <button onclick="setView('trainer')" class="w-full max-w-xs p-4 bg-lime-600 text-white font-bold rounded-xl shadow-lg hover:bg-lime-700 transition duration-300">
+                        <i class="fas fa-chalkboard-teacher mr-2"></i> I am a Trainer
+                    </button>
+                </div>
+            `;
+        }
+
+        // --- Feature Rendering Functions ---
+
+        // FARMER UI
+        function renderFarmerHome() {
+            appScreen.innerHTML = `
+                <!-- Farmer Profile Card -->
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-4 border-t-4 border-green-600">
+                    <h2 class="text-lg font-bold text-green-700 mb-2"><i class="fas fa-id-card text-xl mr-2"></i> My Profile</h2>
+                    <div class="flex items-center space-x-3 mb-2">
+                        <i class="fas fa-user-circle text-4xl text-gray-500"></i>
+                        <div>
+                            <p class="font-bold text-gray-800">${farmerProfile.name} <span class="text-sm text-green-600 font-medium">(${farmerProfile.farmId})</span></p>
+                            <p class="text-xs text-gray-500">${farmerProfile.primaryCrop} Grower in ${farmerProfile.location}</p>
+                        </div>
+                    </div>
+                    <div class="text-sm border-t pt-2 mt-2">
+                        <p>Loan Status: <span class="font-semibold text-blue-600">${farmerProfile.loanStatus}</span></p>
+                        <p>AgriRisk Score: <span class="font-semibold text-orange-500">${farmerProfile.riskScore}/100</span></p>
+                    </div>
+                </div>
+
+                <!-- Climate & Weather (Enhanced) -->
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-4 border-t-4 border-blue-500">
+                    <h2 class="text-lg font-bold text-blue-700 mb-2"><i class="fas fa-cloud-sun text-xl mr-2"></i> Current Field Conditions</h2>
+                    
+                    <!-- Big Temperature and Core Forecast -->
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                        <div>
+                            <p class="text-4xl font-extrabold text-gray-800">${weatherData.temp}</p>
+                            <p class="text-sm font-medium text-blue-600"><i class="fas fa-umbrella mr-1"></i> Next Rain: ${weatherData.nextRain}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm ${weatherData.forecast.includes('rain') ? 'text-blue-500' : 'text-gray-500'} font-medium">${weatherData.forecast}</p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Metrics Grid -->
+                    <div class="grid grid-cols-2 gap-y-3 gap-x-4 mt-3 text-sm">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Rainfall (24h):</span>
+                            <span class="font-semibold">${weatherData.rainfall}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Humidity:</span>
+                            <span class="font-semibold">${weatherData.humidity}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Soil Moisture:</span>
+                            <span class="font-semibold text-red-600">${weatherData.soilMoisture}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Soil Temp:</span>
+                            <span class="font-semibold">${weatherData.soilTemp}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Wind Speed:</span>
+                            <span class="font-semibold">${weatherData.windSpeed}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Irrigation Need:</span>
+                            <span class="font-bold text-red-600">HIGH</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Disease & Pest Risk Card (New) -->
+                <div class="bg-red-50 p-4 rounded-xl shadow-lg mb-4 border-l-4 border-red-600">
+                    <h2 class="text-lg font-bold text-red-700 mb-2"><i class="fas fa-bug text-xl mr-2"></i> Disease & Pest Risk</h2>
+                    <p class="text-sm text-gray-700 mb-2">Based on current temp/humidity profile.</p>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+                            <span class="font-medium text-red-600"><i class="fas fa-disease mr-1"></i> Disease Risk:</span>
+                            <p class="font-bold text-lg">${weatherData.diseaseRisk}</p>
+                        </div>
+                        <div class="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+                            <span class="font-medium text-red-600"><i class="fas fa-spider mr-1"></i> Pest Risk:</span>
+                            <p class="font-bold text-lg">${weatherData.pestRisk}</p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-red-500 mt-3">ACTION: Consult AgroBot for immediate preventative measures.</p>
+                </div>
+                
+                <!-- AI-Powered Action Generator -->
+                <button onclick="generateActionPlan()" id="action-plan-button" class="w-full p-4 bg-green-500 text-white font-bold rounded-xl shadow-lg hover:bg-green-600 transition duration-300 mb-4 flex items-center justify-center">
+                    <i class="fas fa-magic text-xl mr-2"></i> ✨ Generate 3-Point Action Plan
+                </button>
+
+                <!-- Action Plan Display Area -->
+                <div id="action-plan-display" class="hidden bg-yellow-50 p-4 rounded-xl shadow-lg mb-4 border-l-4 border-yellow-500">
+                    <h3 class="text-lg font-bold text-yellow-800 mb-2"><i class="fas fa-list-check mr-2"></i> Your Immediate Action Plan</h3>
+                    <div id="plan-content" class="text-sm text-gray-700 space-y-2">
+                        <!-- Plan content will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Financial Quick Actions -->
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <button onclick="applyForLoan()" class="flex flex-col items-center justify-center p-4 bg-yellow-100 rounded-xl shadow-lg ring-1 ring-yellow-300 hover:bg-yellow-200 transition duration-300 border-b-4 border-yellow-500">
+                        <i class="fas fa-hand-holding-usd text-3xl text-yellow-600"></i>
+                        <span class="mt-2 font-bold text-sm text-yellow-800">Apply for Loan</span>
+                    </button>
+                    <button onclick="navigateTo('chat')" class="flex flex-col items-center justify-center p-4 bg-white rounded-xl shadow-lg ring-1 ring-gray-200 hover:bg-gray-100 transition duration-300 border-b-4 border-green-500">
+                        <i class="fas fa-comment-dots text-3xl text-green-600"></i>
+                        <span class="mt-2 font-bold text-sm text-gray-800">Chat Trainer</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        async function generateActionPlan() {
+            const planDisplay = document.getElementById('action-plan-display');
+            const planContent = document.getElementById('plan-content');
+            const planButton = document.getElementById('action-plan-button');
+
+            planDisplay.classList.add('hidden');
+            planContent.innerHTML = `<p class="text-center text-yellow-600"><i class="fas fa-spinner fa-spin mr-2"></i> AgroBot analyzing data...</p>`;
+            planButton.disabled = true;
+            planButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Generating Plan...`;
+
+
+            const userContext = `Crop: ${farmerProfile.primaryCrop}, Location: ${farmerProfile.location}. Current Conditions: Soil Moisture: ${weatherData.soilMoisture}, Soil Temp: ${weatherData.soilTemp}, Pest Risk: ${weatherData.pestRisk}, Disease Risk: ${weatherData.diseaseRisk}. Forecast: ${weatherData.forecast}`;
+            
+            const systemPrompt = "You are a professional agricultural strategist. Based on the provided context, generate a three-point, immediate action plan for the farmer. The response must be a single JSON object conforming to the schema.";
+            
+            const payload = {
+                contents: [{ parts: [{ text: userContext }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "actionPlan": { 
+                                "type": "ARRAY",
+                                "description": "A list of 3 concise, high-priority actions.",
+                                "items": { "type": "STRING" }
+                            },
+                            "priority": { "type": "STRING", "description": "Overall priority level (E.g., High, Medium)." }
+                        }
+                    }
+                }
+            };
+
+            try {
+                const response = await callGeminiApi(payload, false); // No search grounding needed for structured plan
+                
+                if (response && response.text) {
+                    const parsedJson = JSON.parse(response.text);
+                    const plan = parsedJson.actionPlan;
+                    const priority = parsedJson.priority;
+
+                    if (plan && plan.length > 0) {
+                        planContent.innerHTML = `<p class="font-semibold mb-2">Priority: <span class="text-lg ${priority.includes('High') ? 'text-red-600' : 'text-green-600'}">${priority}</span></p>`;
+                        plan.forEach((action, index) => {
+                            planContent.innerHTML += `<div class="flex items-start"><i class="fas fa-chevron-right text-yellow-700 mt-1 mr-2"></i> <span>${action}</span></div>`;
+                        });
+                        planDisplay.classList.remove('hidden');
+                        showCustomAlert("Action Plan generated successfully!", 'success');
+                    } else {
+                         planContent.innerHTML = `<p class="text-red-600">Error generating plan: Received empty response.</p>`;
+                         planDisplay.classList.remove('hidden');
+                    }
+                } else {
+                    throw new Error("API failed or returned null response.");
+                }
+
+            } catch (e) {
+                console.error("Action Plan Error:", e);
+                planContent.innerHTML = `<p class="text-red-600">Failed to generate plan. Please check your connection or try again.</p>`;
+                planDisplay.classList.remove('hidden');
+            } finally {
+                planButton.disabled = false;
+                planButton.innerHTML = `<i class="fas fa-magic text-xl mr-2"></i> ✨ Generate 3-Point Action Plan`;
+            }
+        }
+        
+
+        // --- Other Feature Rendering Functions (Including TTS Integration) ---
+
+        // FARMER MARKETPLACE VIEW
+        function renderFarmerMarketplace() {
+            appScreen.innerHTML = `
+                <!-- TTS Audio Report Button -->
+                <button onclick="generateAndPlayMarketReport()" id="tts-report-button" class="w-full p-4 bg-blue-500 text-white font-bold rounded-xl shadow-lg hover:bg-blue-600 transition duration-300 mb-4 flex items-center justify-center">
+                    <i class="fas fa-volume-up text-xl mr-2"></i> ✨ Listen to AI Market Report
+                </button>
+
+                <!-- Input Availability and Demand -->
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-4 border-t-4 border-orange-600">
+                    <h2 class="text-xl font-bold text-orange-700 mb-3"><i class="fas fa-warehouse mr-2"></i> Input Availability & Demand</h2>
+                    <p class="text-sm text-gray-500 mb-4">Check stock status and local farmer demand for key materials.</p>
+                    
+                    <ul class="space-y-3">
+                        <li class="p-3 bg-red-100 rounded-lg border-l-4 border-red-500 flex justify-between items-center ring-1 ring-red-200">
+                            <div>
+                                <span class="font-bold text-gray-800">High-Grade Urea (Fertilizer)</span>
+                                <p class="text-xs text-red-600">Local Demand: HIGH (Limited Stock)</p>
+                            </div>
+                            <button onclick="showCustomAlert('Connecting you to nearest vendor...', 'info')" class="text-sm bg-red-500 text-white px-3 py-1 rounded-full hover:bg-red-600">Source</button>
+                        </li>
+                        <li class="p-3 bg-green-100 rounded-lg border-l-4 border-green-500 flex justify-between items-center ring-1 ring-green-200">
+                            <div>
+                                <span class="font-bold text-gray-800">Paddy Rice Seeds (Hybrid)</span>
+                                <p class="text-xs text-green-600">Local Demand: MEDIUM (Good Stock)</p>
+                            </div>
+                            <button onclick="showCustomAlert('Connecting you to nearest vendor...', 'info')" class="text-sm bg-green-500 text-white px-3 py-1 rounded-full hover:bg-green-600">Source</button>
+                        </li>
+                        <li class="p-3 bg-blue-100 rounded-lg border-l-4 border-blue-500 flex justify-between items-center ring-1 ring-blue-200">
+                            <div>
+                                <span class="font-bold text-gray-800">Solar Water Pumps</span>
+                                <p class="text-xs text-blue-600">Local Demand: LOW (On Order)</p>
+                            </div>
+                            <button onclick="showCustomAlert('Connecting you to nearest vendor...', 'info')" class="text-sm bg-blue-500 text-white px-3 py-1 rounded-full hover:bg-blue-600">Source</button>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Price & Demand Forecasting (Sales) -->
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-4 border-t-4 border-blue-600">
+                    <h2 class="text-xl font-bold text-blue-700 mb-3"><i class="fas fa-chart-line mr-2"></i> Sales Price Forecasting</h2>
+                    <p class="text-sm text-gray-500 mb-4">AI-powered predictions for the next 30 days for your major crops.</p>
+                    
+                    <ul class="space-y-3 mt-2">
+                        ${marketData.map(m => `
+                            <li class="p-3 rounded-xl shadow-md ${m.trend === 'high' ? 'bg-green-100 ring-1 ring-green-300' : m.trend === 'low' ? 'bg-red-100 ring-1 ring-red-300' : 'bg-yellow-100 ring-1 ring-yellow-300'} border-l-4 ${m.trend === 'high' ? 'border-green-500' : m.trend === 'low' ? 'border-red-500' : 'border-yellow-500'}">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-bold text-lg text-gray-800">${m.crop}</span>
+                                    <div class="text-right">
+                                        <span class="font-extrabold ${m.trend === 'high' ? 'text-green-600' : m.trend === 'low' ? 'text-red-600' : 'text-yellow-600'} text-2xl">${m.indicator} ${m.value}</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-600 mt-1">${m.prediction}</p>
+                            </li>
+                        `).join('')}
+                    </ul>
+                    <p class="text-xs text-gray-500 mt-4 text-center">Data refreshed 5 minutes ago. Trends are AI-powered market predictions.</p>
+
+                    <h3 class="text-md font-bold text-green-700 mt-6 mb-2">Selling Tools</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="showCustomAlert('Simulating seasonal prediction chart...', 'info')" class="p-3 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition ring-1 ring-gray-300">
+                            <i class="fas fa-chart-area mr-1"></i> Seasonal Chart
+                        </button>
+                        <button onclick="showCustomAlert('Simulating price alert setup...', 'info')" class="p-3 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition ring-1 ring-gray-300">
+                            <i class="fas fa-bell mr-1"></i> Set Price Alert
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function generateAndPlayMarketReport() {
+            if (isPlayingAudio) {
+                showCustomAlert("Report is already playing.", 'info');
+                return;
+            }
+            const ttsButton = document.getElementById('tts-report-button');
+            const originalButtonHtml = ttsButton.innerHTML;
+            
+            ttsButton.disabled = true;
+            isPlayingAudio = true;
+            ttsButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Generating Text...`;
+
+            // --- Stage 1: Generate Text Summary using Gemini Flash ---
+            const marketSummary = marketData.map(m => `${m.crop} is ${m.trend}, price movement is ${m.value}. Prediction: ${m.prediction}`).join('; ');
+            const fullContext = `Farmer Context: Crop: ${farmerProfile.primaryCrop}, Location: ${farmerProfile.location}. Current Weather: ${weatherData.temp}, Soil Moisture: ${weatherData.soilMoisture}, Pest Risk: ${weatherData.pestRisk}. Market Trends: ${marketSummary}.`;
+
+            const textSystemPrompt = `You are a friendly, fast-talking market radio host. Provide a very brief (2-3 sentence) conversational summary of the current market and field conditions for the farmer. Focus only on the most critical trends and risks. Do not use markdown.`;
+            
+            const textPayload = {
+                contents: [{ parts: [{ text: fullContext }] }],
+                systemInstruction: { parts: [{ text: textSystemPrompt }] },
+            };
+
+            const textResponse = await callGeminiApi(textPayload, false);
+
+            if (!textResponse || !textResponse.text) {
+                showCustomAlert("Failed to generate market summary text.", 'error');
+                ttsButton.disabled = false;
+                isPlayingAudio = false;
+                ttsButton.innerHTML = originalButtonHtml;
+                return;
+            }
+
+            const textToSpeak = textResponse.text;
+            showCustomAlert(`Summary generated: "${textToSpeak.substring(0, 50)}..."`, 'success');
+            
+            // --- Stage 2: Convert Text to Speech using Gemini TTS ---
+            ttsButton.innerHTML = `<i class="fas fa-headphones mr-2"></i> Generating Audio...`;
+            
+            const ttsPayload = {
+                contents: [{ parts: [{ text: textToSpeak }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: "Kore" } // Firm and clear voice
+                        }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            try {
+                const audioResponse = await callGeminiApi(ttsPayload, false, null, TTS_API_URL);
+
+                if (audioResponse && audioResponse.audioData) {
+                    const pcmData = base64ToArrayBuffer(audioResponse.audioData);
+                    const pcm16 = new Int16Array(pcmData);
+                    const wavBlob = pcmToWav(pcm16, audioResponse.sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    
+                    const audio = new Audio(audioUrl);
+                    audio.onended = () => {
+                        isPlayingAudio = false;
+                        ttsButton.disabled = false;
+                        ttsButton.innerHTML = originalButtonHtml;
+                        URL.revokeObjectURL(audioUrl);
+                        showCustomAlert("Audio report finished.", 'info');
+                    };
+                    audio.onerror = (e) => {
+                         console.error("Audio playback error:", e);
+                         showCustomAlert("Error playing audio report.", 'error');
+                         isPlayingAudio = false;
+                         ttsButton.disabled = false;
+                         ttsButton.innerHTML = originalButtonHtml;
+                         URL.revokeObjectURL(audioUrl);
+                    };
+
+                    // Start playing
+                    audio.play();
+                    ttsButton.innerHTML = `<i class="fas fa-stopwatch mr-2"></i> Playing Audio...`;
+                    showCustomAlert("Playing market report!", 'info');
+                } else {
+                    throw new Error("TTS API failed to return audio.");
+                }
+
+            } catch (e) {
+                console.error("TTS Process Error:", e);
+                showCustomAlert("Failed to play audio. Check console for details.", 'error');
+            } finally {
+                if (!isPlayingAudio) {
+                    ttsButton.disabled = false;
+                    ttsButton.innerHTML = originalButtonHtml;
+                }
+            }
+        }
+
+
+        function renderTrainerHome() { /* ... unchanged ... */ }
+        function renderTrainerMarketplace() { /* ... unchanged ... */ }
+        function applyForLoan() { /* ... unchanged ... */ }
+        function simulateUpload() { /* ... unchanged ... */ }
+        function simulateVideoDownload(title) { /* ... unchanged ... */ }
+
+
+        // CHAT (AgroBot & Trainer)
+        function renderChatBox() {
+            appScreen.innerHTML = `
+                <div class="h-full flex flex-col">
+                    <!-- Chat Log Area -->
+                    <div id="chat-log" class="flex-grow flex flex-col overflow-y-auto mb-4 p-2 bg-gray-50 rounded-xl chat-container">
+                        <div class="text-center text-xs text-gray-500 my-2">-- You are chatting with AgroBot (AI Assistant) --</div>
+                        <div class="chat-message ai-message">👋 Hello! I'm AgroBot, powered by Gemini. Ask me anything about your **${farmerProfile.primaryCrop}** crop or current field conditions in **${farmerProfile.location}**.</div>
+                        <div id="new-messages" class="flex flex-col"></div>
+                    </div>
+
+                    <!-- Chat Input Area (Fixed to the bottom of the main content area) -->
+                    <div class="flex items-center p-3 bg-white border-t border-gray-200 fixed bottom-20 left-1/2 transform -translate-x-1/2 w-full max-w-sm">
+                        <input type="text" id="chat-input" class="flex-grow p-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="Ask AgroBot..." onkeydown="handleChatEnter(event)">
+                        <button onclick="sendChatMessage()" id="send-chat-button" class="p-2 ml-2 bg-green-500 rounded-full text-white transition duration-150 hover:bg-green-600 shadow-md disabled:bg-gray-400" disabled>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            const chatInput = document.getElementById('chat-input');
+            const sendButton = document.getElementById('send-chat-button');
+            chatInput.addEventListener('input', () => {
+                sendButton.disabled = chatInput.value.trim() === '' || isAiThinking;
+            });
+
+            // Scroll to bottom of chat log
+            setTimeout(() => {
+                const log = document.getElementById('chat-log');
+                if (log) log.scrollTop = log.scrollHeight;
+            }, 100);
+        }
+        
+        async function sendChatMessage() {
+            if (isAiThinking) return;
+
+            const input = document.getElementById('chat-input');
+            const logContainer = document.getElementById('new-messages');
+            const chatLog = document.getElementById('chat-log');
+            const sendButton = document.getElementById('send-chat-button');
+            const messageText = input.value.trim();
+
+            if (!messageText) return;
+
+            // 1. Display user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-message user-message self-end';
+            userMsg.textContent = messageText;
+            logContainer.appendChild(userMsg);
+            
+            // 2. Add AI loading message
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'chat-message ai-message loading';
+            loadingMsg.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> AgroBot is thinking...`;
+            logContainer.appendChild(loadingMsg);
+            
+            // Disable input/button and set state
+            input.value = '';
+            input.disabled = true;
+            sendButton.disabled = true;
+            isAiThinking = true;
+
+            // Scroll to bottom immediately
+            chatLog.scrollTop = chatLog.scrollHeight;
+
+            // 3. Construct Context and Payload
+            const userContext = `Farmer Context: Crop: ${farmerProfile.primaryCrop}, Location: ${farmerProfile.location}. Current Field Data: Soil Moisture: ${weatherData.soilMoisture}, Pest Risk: ${weatherData.pestRisk}, Disease Risk: ${weatherData.diseaseRisk}, Temp: ${weatherData.temp}.`;
+            
+            const systemPrompt = `You are AgroBot, an expert agricultural assistant dedicated to helping farmers. Your advice must be practical, concise, and focused on sustainable farming practices, specifically for the context provided: ${userContext}. Use the Google Search tool for grounded, up-to-date information on pests, diseases, or market trends. Always provide a clear call to action or specific recommendation.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: messageText }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const response = await callGeminiApi(payload, true); // Use search grounding
+                
+                // 4. Update Chat Log
+                loadingMsg.remove(); // Remove loading indicator
+                
+                const aiResponseDiv = document.createElement('div');
+                aiResponseDiv.className = 'chat-message ai-message';
+
+                if (response && response.text) {
+                    let responseText = response.text;
+                    let sourceHtml = '';
+
+                    // Add citations if available
+                    if (response.sources && response.sources.length > 0) {
+                        const uniqueSources = Array.from(new Set(response.sources.map(s => s.uri)))
+                            .slice(0, 3); // Limit to 3 unique sources
+                        
+                        sourceHtml = '<div class="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">Sources: ';
+                        uniqueSources.forEach((uri, index) => {
+                            sourceHtml += `<a href="${uri}" target="_blank" class="text-blue-500 underline hover:text-blue-700">Source ${index + 1}</a>`;
+                            if (index < uniqueSources.length - 1) {
+                                sourceHtml += ' | ';
+                            }
+                        });
+                        sourceHtml += '</div>';
+                    }
+
+                    aiResponseDiv.innerHTML = responseText + sourceHtml;
+                    logContainer.appendChild(aiResponseDiv);
+
+                } else {
+                    aiResponseDiv.innerHTML = "AgroBot: I encountered an issue. Please try phrasing your question differently.";
+                    logContainer.appendChild(aiResponseDiv);
+                }
+
+            } catch (error) {
+                console.error("Chat Message Error:", error);
+                loadingMsg.remove();
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'chat-message ai-message bg-red-100 text-red-700';
+                errorMsg.textContent = 'AgroBot: Connection failed. Please check your internet.';
+                logContainer.appendChild(errorMsg);
+            } finally {
+                // Re-enable input/button and reset state
+                input.disabled = false;
+                sendButton.disabled = input.value.trim() === '';
+                isAiThinking = false;
+                chatLog.scrollTop = chatLog.scrollHeight;
+            }
+        }
+
+        function handleChatEnter(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+        
+        // --- Placeholder/Unchanged Functions ---
+        function renderVideoLessons() {
+            appScreen.innerHTML = `
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-4 border-t-4 border-yellow-500">
+                    <h2 class="text-lg font-bold text-yellow-700 mb-3"><i class="fas fa-graduation-cap mr-2"></i> Quick Training Modules</h2>
+                    <ul class="space-y-3">
+                        ${[
+                            { title: "Pest Identification: Aphids", duration: "3:15" },
+                            { title: "Optimal Irrigation Techniques", duration: "5:00" },
+                            { title: "Soil Health Checkup Basics", duration: "4:30" }
+                        ].map(video => `
+                            <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg ring-1 ring-gray-200 hover:bg-gray-100 transition duration-150">
+                                <div>
+                                    <p class="font-medium text-gray-800">${video.title}</p>
+                                    <p class="text-xs text-gray-500"><i class="fas fa-clock mr-1"></i> ${video.duration}</p>
+                                </div>
+                                <button onclick="simulateVideoDownload('${video.title}')" class="text-sm bg-green-500 text-white px-3 py-1 rounded-full hover:bg-green-600">
+                                    <i class="fas fa-download mr-1"></i> Download
+                                </button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                
+                <div class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-green-500">
+                    <h2 class="text-lg font-bold text-green-700 mb-3"><i class="fas fa-clipboard-check mr-2"></i> Completed Training</h2>
+                    <p class="text-sm text-gray-700">All modules successfully completed. Great work!</p>
+                </div>
+            `;
+        }
+
+        function renderTrainerHome() {
+            appScreen.innerHTML = `
+                <div class="p-4 bg-blue-50 rounded-xl shadow-lg mb-4 border-t-4 border-blue-600">
+                    <h2 class="text-xl font-bold text-blue-800 mb-2"><i class="fas fa-chart-bar mr-2"></i> Trainer Dashboard</h2>
+                    <p class="text-sm text-gray-700">Focus on the highest-need areas for your farmers.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="p-4 bg-white rounded-xl shadow-md border-l-4 border-red-500">
+                        <p class="text-xs text-gray-500">High Risk Farms</p>
+                        <p class="text-3xl font-bold text-red-600">12 <span class="text-sm ml-1 text-red-400">/ 85</span></p>
+                        <p class="text-xs text-red-500 mt-1">Focus on Solapur region.</p>
+                    </div>
+                    <div class="p-4 bg-white rounded-xl shadow-md border-l-4 border-yellow-500">
+                        <p class="text-xs text-gray-500">Pending Chat Requests</p>
+                        <p class="text-3xl font-bold text-yellow-600">3</p>
+                        <p class="text-xs text-yellow-500 mt-1">Average wait: 15 mins</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-4 border-t-4 border-green-500">
+                    <h2 class="text-lg font-bold text-green-700 mb-3"><i class="fas fa-bullhorn mr-2"></i> Bulk Communications</h2>
+                    <textarea class="w-full p-2 border rounded-lg mb-2 text-sm" rows="3" placeholder="Draft a new advisory message (e.g., 'Heavy rain expected, secure stored grains')."></textarea>
+                    <button onclick="showCustomAlert('Advisory sent to all farmers in your network.', 'success')" class="w-full p-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600">
+                        Send Advisory
+                    </button>
+                </div>
+            `;
+        }
+        function renderTrainerMarketplace() {
+             appScreen.innerHTML = `
+                <div class="bg-white p-4 rounded-xl shadow-lg mb-4 border-t-4 border-purple-600">
+                    <h2 class="text-xl font-bold text-purple-700 mb-3"><i class="fas fa-store mr-2"></i> Trainer Marketplace</h2>
+                    <p class="text-sm text-gray-500 mb-4">Manage and source inputs for your farmer network.</p>
+
+                    <h3 class="text-lg font-bold text-purple-600 mb-2">Inventory Management</h3>
+                    <ul class="space-y-3">
+                        <li class="p-3 bg-gray-50 rounded-lg ring-1 ring-gray-200 flex justify-between items-center">
+                            <span>Urea Stock (Bags)</span>
+                            <span class="font-bold text-red-500">45 (Low)</span>
+                        </li>
+                        <li class="p-3 bg-gray-50 rounded-lg ring-1 ring-gray-200 flex justify-between items-center">
+                            <span>Paddy Seeds (Kgs)</span>
+                            <span class="font-bold text-green-500">450 (Good)</span>
+                        </li>
+                    </ul>
+                    <button onclick="showCustomAlert('Redirecting to distributor portal...', 'info')" class="w-full mt-4 p-3 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600">
+                        Place New Order
+                    </button>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-orange-500">
+                    <h3 class="text-lg font-bold text-orange-700 mb-2"><i class="fas fa-handshake mr-2"></i> Farmer Sales Network</h3>
+                    <p class="text-sm text-gray-700 mb-4">Connect farmers to bulk buyers for better prices.</p>
+                    <button onclick="showCustomAlert('Opening buyer connection tool...', 'info')" class="w-full p-3 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600">
+                        Connect to Bulk Buyers
+                    </button>
+                </div>
+            `;
+        }
+        function applyForLoan() { showCustomAlert("Simulating loan application submission...", 'success'); }
+        function simulateUpload() { showCustomAlert("Simulating document upload...", 'success'); }
+        function simulateVideoDownload(title) { showCustomAlert(`Downloading video: "${title}"...`, 'info'); }
+        function toggleOfflineMode() {
+            const indicator = document.getElementById('offline-indicator');
+            isOffline = !isOffline;
+            localStorage.setItem(OFFLINE_KEY, isOffline);
+
+            if (isOffline) {
+                indicator.innerHTML = '<i class="fas fa-plane-departure"></i> Offline';
+                indicator.classList.remove('border-white', 'text-white');
+                indicator.classList.add('border-yellow-400', 'bg-yellow-500', 'text-black');
+                showCustomAlert("You are now in **Offline Mode**. AI features are disabled.", 'warning');
+            } else {
+                indicator.innerHTML = '<i class="fas fa-wifi"></i> Online';
+                indicator.classList.remove('border-yellow-400', 'bg-yellow-500', 'text-black');
+                indicator.classList.add('border-white', 'text-white');
+                showCustomAlert("You are now **Online**. AI services restored.", 'success');
+            }
+        }
+
+
+        // --- Initialization ---
+        
+        // Expose function to global scope for the module script to call
+        window.initializeAppStructure = function() {
+            // Check for persistent offline state
+            if (localStorage.getItem(OFFLINE_KEY) === 'true') {
+                isOffline = true;
+                const indicator = document.getElementById('offline-indicator');
+                indicator.innerHTML = '<i class="fas fa-plane-departure"></i> Offline';
+                indicator.classList.remove('border-white', 'text-white');
+                indicator.classList.add('border-yellow-400', 'bg-yellow-500', 'text-black');
+            }
+            
+            // Remove loading spinner
+            const spinner = document.getElementById('loading-spinner');
+            if(spinner) spinner.remove();
+
+            // Start on the initial selection screen
+            renderInitialScreen();
+        };
+
+        // Fallback initialization for non-canvas environments
+        if (typeof __firebase_config === 'undefined' && typeof window.initializeAppStructure === 'function') {
+            console.warn("Running outside of Canvas; triggering fallback initialization.");
+            window.initializeAppStructure();
+        }
+
+    </script>
+</body>
+</html>
